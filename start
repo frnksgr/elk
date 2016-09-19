@@ -1,0 +1,8 @@
+#!/bin/bash
+
+trap "elk stop; exit" EXIT
+
+elk start
+while true; do
+  sleep 1d
+done

@@ -1,0 +1,79 @@
+#!/bin/bash
+
+ROOT_DIR=/opt/elk
+PID_DIR=/var/run/elk
+LIB_DIR=/var/lib/elk
+LOG_DIR=/var/log/elk
+CONFIG_DIR=/etc/elk
+
+action=$1
+
+function help() {
+  echo "Usage: elk start|stop"
+  echo "start and stop elk stack"
+}
+
+function start_elasticsearch() {
+  local logfile=$LOG_DIR/elk-elasticsearch.log
+  local pidfile=$PID_DIR/elasticsearch.pid
+  local configfile=$CONFIG_DIR/elasticsearch.yml
+  [ -e $pidfile ] && ps -p $(cat $pidfile) &> /dev/null && return 0
+  $ROOT_DIR/elasticsearch/bin/elasticsearch &>$logfile &
+  echo $! > $pidfile
+}
+
+function stop_elasticsearch() {
+  local pidfile=$PID_DIR/elasticsearch.pid
+  [ -e $pidfile ] && ps -p $(cat $pidfile) &> /dev/null || return 0
+  kill $(cat $pidfile)
+}
+
+function start_logstash() {
+  local logfile=$LOG_DIR/elk-logstash.log
+  local pidfile=$PID_DIR/logstash.pid
+  local configfile=$CONFIG_DIR/logstash.conf
+  [ -e $pidfile ] && ps -p $(cat $pidfile) &> /dev/null && return 0
+  $ROOT_DIR/logstash/bin/logstash -f $configfile -l $logfile &> $logfile &
+  echo $! > $pidfile
+}
+
+function stop_logstash() {
+  local pidfile=$PID_DIR/logstash.pid
+  [ -e $pidfile ] && ps -p $(cat $pidfile) &> /dev/null || return 0
+  kill $(cat $pidfile)
+}
+
+function start_kibana() {
+  local logfile=$LOG_DIR/elk-kibana.log
+  local pidfile=$PID_DIR/kibana.pid
+  [ -e $pidfile ] && ps -p $(cat $pidfile) &> /dev/null && return 0
+  $ROOT_DIR/kibana/bin/kibana &>$logfile &
+  echo $! > $pidfile
+}
+
+function stop_kibana() {
+  local pidfile=$PID_DIR/kibana.pid
+  [ -e $pidfile ] && ps -p $(cat $pidfile) &> /dev/null || return 0
+  kill $(cat $pidfile)
+}
+
+if [ "$(whoami)" != "elk" ]; then # run as elk or fail
+  exec su -c "$0 $*" elk
+else
+  # dispatch command
+  case $action in
+    "start")
+      start_elasticsearch
+      start_logstash
+      start_kibana
+      ;;
+    "stop")
+      stop_kibana
+      stop_logstash
+      stop_elasticsearch
+      ;;
+    *)
+      help
+      ;;
+  esac
+fi
